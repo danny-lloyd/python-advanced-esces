@@ -25,7 +25,7 @@ keypoints:
 
 Dask is a Distributed processing library for Python. It enables parallel processing of Python code across multiple cores on the same computer or across multiple computers. It can be
 used behind the scenes by Xarray with minimal modification to code. JASMIN users can make use of a Dask gateway that allows their Dask code submitted from the Jupyter notebook interface
-to run on the Lotus HPC cluster. Dask has two broad categories of features, high level data structures which behave in a similar way to common Python data structures but with the
+to run on the LOTUS HPC cluster. Dask has two broad categories of features, high level data structures which behave in a similar way to common Python data structures but with the
 ability to perform operations in parallel and low level task scheduling to run any Python code in parallel.
 
 # Setting up Dask on your computer
@@ -45,17 +45,6 @@ The code above will create a local Dask cluster with one worker and 4 threads fo
 cluster.
 
 ![A screenshot of the Dask client information](../fig/dask_setup.png)
-
-
-## Using the Dask dashboard
-
-In the information about the Dask cluster is a link to a Dashboard webpage. From the Dashboard we can monitor our Dask cluster and see how busy it is, view a graph of task dependencies,
- memory usage and the status of the Dask workers. This can be really useful when checking if our Dask cluster is behaving correctly and working out how optimially our code is making
-use of Dask's parallelism. Note that it is not possible (or at least not without significant additional complexity) to access the Dask dashboard when running on the JASMIN notebook service.
-
-![Dask dashboard graph view](../fig/Dask-Task-Graph.png)
-
-![Dask dashboard task view](../fig/Dask-Status.png)
 
 # Using the JASMIN Dask gateway
 
@@ -106,16 +95,16 @@ cluster.adapt(minimum=1, maximum=15)
 ~~~
 {: .language-python}
 
-If we now connect to one of the JASMIN sci servers (sci-vm-01 to 05 or sci-ph-01 to 03) we can see our jobs in the SLURM queue by running the `squeue` command.
+If we now connect to one of the JASMIN sci servers (sci-vm-01 to 05 or sci-ph-01 to 03) we can see our jobs in the Slurm queue by running the `squeue` command.
 
 ~~~
-ssh -J <jasminusername>@login-02.jasmin.ac.uk <jasminusername>@sci-vm-03
-squeue -p dask
+ssh -J <jasminusername>@login.jasmin.ac.uk <jasminusername>@sci-vm-03
+squeue -q dask --me
 ~~~
 {: .language-bash}
 
 
-Once we are done with Dask we can shutdown the cluster by calling its `shutdown` function. This should cause the jobs in the SLURM queue to finish.
+Once we are done with Dask we can shutdown the cluster by calling its `shutdown` function. This should cause the jobs in the Slurm queue to finish.
 
 ~~~
 cluster.shutdown()
@@ -127,31 +116,17 @@ cluster.shutdown()
 
 If you display the contents of the `client` or `cluster` variable then you will be given an address beginning https://dask-gateway.jasmin.ac.uk that will take you to a Dask
 dashboard for your cluster. Unfortunately this server is only accessible within the JASMIN network, to access it you will have to use a web browser running inside a
-[NoMachine](https://help.jasmin.ac.uk/docs/interactive-computing/graphical-linux-desktop-access-using-nx/) session, remote X session or port forward via the JASMIN login server.
+[NoMachine](https://help.jasmin.ac.uk/docs/interactive-computing/graphical-linux-desktop-access-using-nx/) session or port forward via the JASMIN login server.
 
-#### Port Forwarding
+## Using the Dask dashboard
 
-~~~
-ssh -L 8443:dask-gateway.jasmin.ac.uk:443 <username>@login.jasmin.ac.uk
-~~~
-{: .language-bash}
+From the Dashboard we can monitor our Dask cluster and see how busy it is, view a graph of task dependencies,
+memory usage and the status of the Dask workers. This can be really useful when checking if our Dask cluster is behaving correctly and working out how optimially our code is making
+use of Dask's parallelism.
 
-This will make port 443 (the HTTPS port) on dask-gateway.jasmin.ac.uk into port 8443 on your computer.
-Copy the address of your JASMIN gateway URL (e.g. https://dask-gateway.jasmin.ac.uk/clusters/a94f54d1872a4986a4ae34e6479a7ab5/status) and change `dask-gateway.jasmin.ac.uk` to `127.0.0.1:8443`
-and paste this address into the address bar of your web browser. This will trigger a security warning as it is expecting to connect to dask-gateway.jasmin.ac.uk not your computer (127.0.0.1).
-But if you override the security warning you will be connected to your Dask Dashboard. 
+![Dask dashboard graph view](../fig/Dask-Task-Graph.png)
 
-#### Remote X session
-
-Note: Windows users will need to use WSL or [MobaXTerm](https://mobaxterm.mobatek.net/download-home-edition.html) for this to work. 
-
-If you are not able to install NoMachine you might be able to login to JASMIN and enable X forwarding of a Firefox window. Note that this method can be quite slow.
-~~~
-ssh -X <your user name>@nx1.jasmin.ac.uk
-firefox
-~~~
-{: .language-bash}
-
+![Dask dashboard task view](../fig/Dask-Status.png)
 
 # Dask Arrays
 
@@ -365,48 +340,6 @@ will be Dask future objects, if we display them we will see their status as to w
 
 The Dask documentation does not have much advice on when it is more appropriate to use Futures or Delayed functions. Some [general advice](https://dask.discourse.group/t/documentation-on-the-interplay-between-graphs-and-futures/269)
 from the forums is to use Delayed functions and task graphs first, but to switch to futures for more complicated problems.
-
-
-
-> ## Challenge
-> Setup Dask a Dask cluster on JASMIN. Load the GIS temperature anomaly dataset with Xarray and run the correction algorithm on it.
-> Time how long the compute operation takes by using the %%time magic.
-> Experiment with:
-> - Changing the chunk sizes you use in Xarray
-> - Changing the number of worker cores
-> - Changing the number of workers (set in `cluster.adapt`)
->
-> > ## Solution
-> > ~~~
-> > import dask_gateway
-> > import xarray as xr
-> > print(dask_gateway.__version__)
-> > # Create a connection to dask-gateway.
-> > gw = dask_gateway.Gateway("https://dask-gateway.jasmin.ac.uk", auth="jupyterhub")
-> > 
-> > options = gw.cluster_options()
-> > options.worker_cores = 2
-> > options.scheduler_cores = 1
-> > options.account = "workshop"
-> > options.worker_setup='source /apps/jasmin/jaspy/miniforge_envs/jaspy3.11/mf3-23.11.0-0/bin/activate /work/scratch-nopw2/colinsau/esces-env'
-> > clusters = gw.list_clusters()
-> > if not clusters:
-> >     cluster = gw.new_cluster(options, shutdown_on_close=False)
-> > else:
-> >    cluster = gw.connect(clusters[0].name)
-> > client = cluster.get_client()
-> > cluster.adapt(minimum=1, maximum=4)
-> > ds = xr.open_dataset("gistemp1200-21c.nc", chunks={'lat':30, 'lon':30, 'time':-1})
-> > ds
-> > da = ds['tempanomaly']
-> > da
-> > dataset_corrected = ds['tempanomaly'] * 1.1 - 1.0
-> > print(dataset_corrected)
-> > cluster.shutdown()
-> > ~~~
-> > {: .language-python}
-> {: .solution}
-{: .challenge}
 
 
 {% include links.md %}
